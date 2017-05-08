@@ -20,6 +20,7 @@ from __future__ import print_function
 import argparse
 import sys
 import tempfile
+import warnings
 
 from six.moves import urllib
 
@@ -37,11 +38,19 @@ def maybe_download(train_data, test_data):
   if train_data:
     train_file_name = train_data
   else:
+    train_file = tempfile.NamedTemporaryFile(delete=False)
+    urllib.request.urlretrieve("http://mlr.cs.umass.edu/ml/machine-learning-databases/adult/adult.data", train_file.name)  # pylint: disable=line-too-long
+    train_file_name = train_file.name
+    train_file.close()
     print("Training data is downloaded to %s" % train_file_name)
 
   if test_data:
     test_file_name = test_data
   else:
+    test_file = tempfile.NamedTemporaryFile(delete=False)
+    urllib.request.urlretrieve("http://mlr.cs.umass.edu/ml/machine-learning-databases/adult/adult.test", test_file.name)  # pylint: disable=line-too-long
+    test_file_name = test_file.name
+    test_file.close()
     print("Test data is downloaded to %s" % test_file_name)
 
   return train_file_name, test_file_name
@@ -49,21 +58,23 @@ def maybe_download(train_data, test_data):
 
 def build_estimator(model_dir, model_type):
   """Build an estimator."""
-  
-  brands = tf.contrib.layers.sparse_column_with_hash_bucket(column_name="brands", hash_bucket_size=100)
+  brands = tf.contrib.layers.sparse_column_with_hash_bucket(column_name="brands", hash_bucket_size=10000)
   province = tf.contrib.layers.sparse_column_with_hash_bucket(
       "province", hash_bucket_size=100)
-
+    
   # Wide columns and deep columns.
   wide_columns = [brands, province]
   for i in range(0, APP_NUM):
-    wide_columns.append('app' + str(i))
-  deep_columns = [
+    appName = 'app' + str(i)
+    wide_columns.append(tf.contrib.layers.real_valued_column(appName))
+  deep_columns = [       
       tf.contrib.layers.embedding_column(brands, dimension=8),
       tf.contrib.layers.embedding_column(province, dimension=8)
   ]
+  
   for i in range(0, APP_NUM):
-    deep_columns.append('app' + str(i))
+    appName = 'app' + str(i)
+    deep_columns.append(tf.contrib.layers.real_valued_column(appName))
 
   if model_type == "wide":
     m = tf.contrib.learn.LinearClassifier(model_dir=model_dir,
@@ -86,6 +97,9 @@ def input_fn(df):
   """Input builder function."""
   # Creates a dictionary mapping from each categorical feature column name (k)
   # to the values of that column stored in a tf.SparseTensor.
+  for i in range(0, APP_NUM):
+    CATEGORICAL_COLUMNS.append('app' + str(i))
+    
   categorical_cols = {
       k: tf.SparseTensor(
           indices=[[i, 0] for i in range(df[k].size)],
@@ -124,9 +138,9 @@ def train_and_eval(model_dir, model_type, train_steps, train_data, test_data):
   df_test = df_test.dropna(how='any', axis=0)
 
   df_train[LABEL_COLUMN] = (
-      df_train["gender"].apply(lambda x: "male" in x)).astype(int)
+      df_train["gender"].apply(lambda x: "female" in x)).astype(int)
   df_test[LABEL_COLUMN] = (
-      df_test["gender"].apply(lambda x: "male" in x)).astype(int)
+      df_test["gender"].apply(lambda x: "female" in x)).astype(int)
 
   model_dir = tempfile.mkdtemp() if not model_dir else model_dir
   print("model directory = %s" % model_dir)
@@ -142,6 +156,7 @@ FLAGS = None
 
 
 def main(_):
+  warnings.filterwarnings('ignore')
   train_and_eval(FLAGS.model_dir, FLAGS.model_type, FLAGS.train_steps,
                  FLAGS.train_data, FLAGS.test_data)
 
@@ -164,7 +179,7 @@ if __name__ == "__main__":
   parser.add_argument(
       "--train_steps",
       type=int,
-      default=200,
+      default=1,
       help="Number of training steps."
   )
   parser.add_argument(
