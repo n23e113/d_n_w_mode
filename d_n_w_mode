@@ -95,6 +95,7 @@ def build_estimator(model_dir, model_type):
         linear_feature_columns=wide_columns,
         dnn_feature_columns=deep_columns,
         dnn_hidden_units=[100, 50],
+		dnn_optimizer = tf.train.AdamOptimizer()
         fix_global_step_increment_bug=True)
   return m
 
@@ -152,9 +153,11 @@ def train_and_eval(model_dir, model_type, train_steps, train_data, test_data):
   print("model directory = %s" % model_dir)
 
   m = build_estimator(model_dir, model_type)
-  print("Begin to Fit" )
+  print("Begin to 
+  " )
   start_time = timeit.default_timer()
-  m.fit(input_fn=lambda: input_fn(df_train), steps=train_steps)
+  feature_cols, label = input_fn(df_train)
+  m.partial_fit(x = feature_cols, y = label, steps=train_steps, batch_size = 100)
   elapsed = timeit.default_timer() - start_time
   print("End Fit. Time Consumption is %d" % elapsed)
   print("Begin to evaluate" )
