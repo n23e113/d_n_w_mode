@@ -58,7 +58,8 @@ def create_example(row):
             colvalue = row[i]
             if colname in wndt.CATEGORICAL_COLUMNS:
                 if colname == "province" :
-                  example.features.feature[colname].bytes_list.value.extend([str.encode('2312', colvalue)])
+                  colvalue = str.decode('utf-8')
+                  example.features.feature[colname].bytes_list.value.extend([str.encode('gb2312', colvalue)])
                 else :
                   example.features.feature[colname].bytes_list.value.extend([str.encode(colvalue)])
             elif colname in wndt.CATEGORICAL_COLUMNS:
